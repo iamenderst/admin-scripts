@@ -9,7 +9,7 @@ Unattended-Upgrade::Package-Blacklist {
 };
 
 Unattended-Upgrade::DevRelease "auto";
-Unattended-Upgrade::Mail "enderst@gmail.com";
+Unattended-Upgrade::Mail "toemail";
 Unattended-Upgrade::MailReport "only-on-error";
 Unattended-Upgrade::Automatic-Reboot "true";
 Unattended-Upgrade::Automatic-Reboot-WithUsers "true";
