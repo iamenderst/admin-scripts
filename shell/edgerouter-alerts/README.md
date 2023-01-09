@@ -3,9 +3,9 @@
 3. Make sure watchdog-lb is executable  
 `chmod +x /config/scripts/watchdog-lb`  
 4.Now configure the edgerouter  
-`
+```
   configure  
   set load-balance group G transition-script /config/scripts/watchdog-lb  
   commit  
   save  
-`
+```
