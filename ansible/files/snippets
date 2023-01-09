@@ -1,0 +1,9 @@
+mkpasswd --method=sha-512
+...
+    - name: Adding mtskyuser
+      ansible.builtin.user:
+        name: mtskyuser
+        groups: sudo
+        append: yes
+        state: present
+        password: '$6$79crm5fqCF$cpgped.4dh1yYYFpIyee2cx.ayUv878ZK9diI27N.bObI/SjNmhFAeaAVWCwW6ihxuDOsdTCVS5L4O18qEaGU0'

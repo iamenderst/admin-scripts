@@ -1,0 +1,97 @@
+---
+# Playbook to prep a server
+- hosts: All
+  become: true
+  tasks:
+    - name: Configure ufw defaults
+      ufw: direction={{ item.direction }} policy={{ item.policy }}
+      with_items:
+        - { direction: 'incoming', policy: 'deny' }
+        - { direction: 'outgoing', policy: 'allow' }
+
+    - name: Allow all access from RFC1918 networks and MGMT hosts to this host
+      ufw:
+        rule: allow
+        src: '{{ item }}'
+      loop:
+        - 10.0.0.0/8
+        - 172.16.0.0/12
+        - 192.168.0.0/16    
+
+    - name: Enable ufw logging
+      ufw: logging=on
+      
+    - name: Enable ufw
+      ufw: state=enabled
+
+# Add newuser. Password generated with mkpasswd --method=sha-512
+    - name: Adding newuser
+      ansible.builtin.user:
+        name: newuser
+        groups: sudo
+        append: yes
+        state: present
+        password: '$6$lRmDh/pB6$mlpJRWFg69U6G9NVM2nhUMnLXrgmAXR7orztnCBxbEzAK/eWnvXkWI1tFwLh5i0Dp90Za.EjrHoc8bbMaVMvp.'
+
+# This is a Proxmox VM
+    - name: Remove open-vm-tools
+      apt:
+        name: open-vm-tools
+        state: absent
+
+    - name: Install packages
+      apt:
+        state: present
+        name:
+        - qemu-guest-agent
+        - multitail
+        - net-tools
+        - tasksel
+      notify: Restart qemu-guest-agent
+
+    - name: Update repo and cache
+      apt: update_cache=yes force_apt_get=yes cache_valid_time=3600
+
+    - name: Upgrade all packages on servers
+      apt: upgrade=dist force_apt_get=yes
+
+    - name: Check if a reboot is needed on all servers
+      register: reboot_required_file
+      stat: path=/var/run/reboot-required get_md5=no
+
+    - name: Copy unattended upgrades config
+      copy:
+        src: files/50unattended-upgrades
+        dest: /etc/apt/apt.conf.d/50unattended-upgrades
+
+    - name: Reboot the VM if kernel updated
+      reboot:
+        msg: "Reboot initiated by Ansible for OS/kernel updates"
+        connect_timeout: 5
+        reboot_timeout: 300
+        pre_reboot_delay: 0
+        post_reboot_delay: 30
+        test_command: uptime
+      when: reboot_required_file.stat.exists
+
+    - name: Setup Crowdsec repo
+      shell: curl -s https://packagecloud.io/install/repositories/crowdsec/crowdsec/script.deb.sh | sudo bash
+      
+    - name: Install Crowdsec and bouncer
+      apt:
+        state: present
+        name:
+        - crowdsec
+        - crowdsec-firewall-bouncer-iptables
+
+  handlers:
+    - name: Restart qemu-guest-agent
+      ansible.builtin.service:
+        name: qemu-guest-agent
+        state: restarted
+        
+    - name: Restart unattended-upgrades
+      ansible.builtin.service:
+        name: unattended-upgrades
+        state: restarted
+

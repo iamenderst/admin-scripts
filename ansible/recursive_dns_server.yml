@@ -1,0 +1,93 @@
+---
+# Playbook to prep a server
+- hosts: All
+  become: true
+  become_user: root
+  tasks:
+
+    - name: Update repo and cache
+      apt: update_cache=yes force_apt_get=yes cache_valid_time=3600
+
+    - name: Upgrade all packages on servers
+      apt: upgrade=dist force_apt_get=yes
+
+    - name: Install Unbound
+      apt:
+        state: present
+        name:
+        - unbound
+
+    - name: Copy unbound config over
+      copy:
+        src: files/unbound.conf
+        dest: /etc/unbound/unbound.conf
+    
+    - name: Create logging directory
+      ansible.builtin.file:
+        path: /var/log/unbound
+        state: directory
+    
+    - name: Create logging file
+      ansible.builtin.file:
+        path: /var/log/unbound/unbound.log
+        state: touch
+    
+    - name: Setup logrotate for unbound logging
+      copy:
+        src: files/unbound
+        dest: /etc/logrotate.d/unbound
+
+    - name: Fix permissions to logging directory
+      ansible.builtin.file:
+        path: /var/log/unbound
+        state: directory
+        recurse: yes
+        owner: unbound
+        group: unbound
+
+    - name: Copy apparmor config for unbound logging
+      copy:
+        src: files/usr.sbin.unbound
+        dest: /etc/apparmor.d/local/usr.sbin.unbound
+
+    - name: Refresh apparmor with new permissions for unbound
+      ansible.builtin.command:
+        cmd: /usr/sbin/apparmor_parser -r /etc/apparmor.d/usr.sbin.unbound
+      notify: Restart unbound  
+
+    - name: Disable systemd-resolved
+      lineinfile:
+        dest: "/etc/systemd/resolved.conf"
+        regexp: "^#DNSStubListener="
+        line: "DNSStubListener=no"
+        state: present
+          
+    - name: Remove file (delete file)
+      ansible.builtin.file:
+        path: /etc/resolv.conf
+        state: absent
+
+    - name: Create new link for resov.conf
+      ansible.builtin.file:
+        src: /var/run/systemd/resolve/resolv.conf
+        dest: /etc/resolv.conf
+        state: link
+      notify: Restart systemd-resolved
+
+    - name: Configure ufw rules
+      ufw: rule={{ item.rule }} port={{ item.port }} proto={{ item.proto }}
+      with_items:
+        - { rule: 'allow', port: '53', proto: 'tcp' }
+        - { rule: 'allow', port: '53', proto: 'udp' }
+
+  handlers:
+    - name: Restart systemd-resolved
+      ansible.builtin.service:
+        name: systemd-resolved
+        state: restarted
+
+    - name: Restart unbound
+      ansible.builtin.service:
+        name: unbound
+        state: restarted
+
