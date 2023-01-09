@@ -1,0 +1,37 @@
+#!/bin/bash
+
+# Psuedo lock file because transition-script seems to loop for every interface
+lock=/home/admin/lock
+if [ ! -f "$lock" ];  then
+  echo 2 > /home/admin/lock
+fi
+
+# To run router commands
+run=/opt/vyatta/bin/vyatta-op-cmd-wrapper
+
+# Determine interface status
+eth3=`/opt/vyatta/bin/vyatta-op-cmd-wrapper show load-balance watchdog | grep eth3 -A 6 | tail -1 | awk {' print $5 '}`
+pppoe1=`/opt/vyatta/bin/vyatta-op-cmd-wrapper show load-balance watchdog | grep pppoe1 -A 6 | tail -1 | awk {' print $5 '}`
+
+dated=`date`
+host=`hostname`
+Subject=""$host" Changed"
+
+# If lock exists then continuing 1 then send alert else exit.
+islocked=`cat /home/admin/lock`
+if [ $islocked -eq 1 ]; then
+  /usr/sbin/ssmtp -t << EOF
+To: toemailaddress
+From: fromemailaddress
+Subject: $Subject
+
+$dated con1 - $eth3
+$dated con2 - $pppoe1
+
+EOF
+  echo 2 > /home/admin/lock
+else
+  echo 1 > /home/admin/lock
+fi
+exit 0
+
