@@ -10,4 +10,5 @@ fi
 
 echo -ne $1 - `wget -qO- "https://api.macaddress.io/v1?apiKey=YOUR_API_KEY_HERE&output=vendor&search=$1"`
 echo
+
 exit 0
