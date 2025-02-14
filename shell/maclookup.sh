@@ -7,6 +7,7 @@ if [ "$1" == "" ]; then
     echo "Example: $0 000a.959d.6816"
     exit 1
 fi
+echo
 echo -ne $1 - `wget -qO- "https://api.macaddress.io/v1?apiKey=YOUR_API_KEY_HERE&output=vendor&search=$1"`
 echo
 echo
